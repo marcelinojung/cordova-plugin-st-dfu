@@ -120,7 +120,8 @@
 
 - (NSInteger) downloadVersion {
     NSInteger version = 0;
-    NSData *data = [NSData dataWithContentsOfURL: NSURL *url = [NSURL URLWithString: @"https://s3.amazonaws.com/sttile.blueapp.io/test/version.json"]];
+    NSURL *url = [NSURL URLWithString: @"https://s3.amazonaws.com/sttile.blueapp.io/test/version.json"];
+    NSData *data = [NSData dataWithContentsOfURL: url];
     
     if(data != nil) {
         NSError *error;
