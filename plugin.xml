@@ -7,24 +7,24 @@
     <description></description>
     <license>MIT</license>
     <keywords></keywords>
-
+    
     <!-- android -->
     <platform name="android">
-      <js-module src="www/stdfu.js" name="plugin">
-        <runs/>
+        <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-permission android:name="android.permission.INTERNET" />
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+            <uses-permission android:name="android.permission.BLUETOOTH" />
+            <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+            <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+            <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+        </config-file>
+        
+        <source-file src="src/android/libs/BlueSTDFU.jar" target-dir="libs" />
+        <source-file src="src/android/STDFUPlugin.java" target-dir="src/com/vensi/STDFUPlugin/"/>
 
-        <clobbers target="STDFUPlugin" />
-      </js-module>
-      <config-file target="res/xml/config.xml" parent="/*">
-        <feature name="STDFUPlugin">
-          <param name="android-package" value="com.vensi.STDFUPlugin" />
-          <param name="onload" value="true" />
-        </feature>
-      </config-file>
-
-      <source-file src="src/android/com/vensi/STDFUPlugin.java" target-dir="src/com/vesi/" />
     </platform>
-
+    
     <!-- ios -->
     <platform name="ios">
         <js-module src="www/stdfu.js" name="plugin">
@@ -36,7 +36,7 @@
                 <param name="ios-package" value="STDFUPlugin" onload="true" />
             </feature>
         </config-file>
-
+        
         <header-file src="src/ios/STDFUView.h" />
         <source-file src="src/ios/STDFUView.m" />
         <header-file src="src/ios/STDFUPlugin.h" />
