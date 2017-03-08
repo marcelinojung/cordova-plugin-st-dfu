@@ -8,8 +8,19 @@
     <license>MIT</license>
     <keywords></keywords>
     
+    <js-module src="www/stdfu.js" name="plugin">
+        <runs/>
+        <clobbers target="STDFUPlugin" />
+    </js-module>
+    
     <!-- android -->
     <platform name="android">
+        <config-file target="res/xml/config.xml" parent="/*">
+            <feature name="STDFUPlugin">
+                <param name="android-package" value="com.vensi.STDFUPlugin.STDFUPlugin" />
+            </feature>
+        </config-file>
+        
         <config-file target="AndroidManifest.xml" parent="/manifest">
             <uses-permission android:name="android.permission.INTERNET" />
             <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -22,15 +33,12 @@
         
         <source-file src="src/android/libs/BlueSTDFU.jar" target-dir="libs" />
         <source-file src="src/android/STDFUPlugin.java" target-dir="src/com/vensi/STDFUPlugin/"/>
+        <source-file src="src/android/STDFUView.java" target-dir="src/com/vensi/STDFUPlugin/"/>
 
     </platform>
     
     <!-- ios -->
     <platform name="ios">
-        <js-module src="www/stdfu.js" name="plugin">
-            <runs/>
-            <clobbers target="STDFUPlugin" />
-        </js-module>
         <config-file target="config.xml" parent="/*">
             <feature name="STDFUPlugin">
                 <param name="ios-package" value="STDFUPlugin" onload="true" />
