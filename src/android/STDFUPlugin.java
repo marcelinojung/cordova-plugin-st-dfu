@@ -244,6 +244,10 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 Log.d(TAG, "onLoadFwComplete");
                 FrameLayout parent = (FrameLayout)webView.getView().getParent();
                 mUpdateView.removeOverlay(parent);
+
+                PluginResult pr = new PluginResult(PluginResult.Status.OK, "updated");
+                pr.setKeepCallback(true);
+                mCallbackContext.sendPluginResult(pr);
             }
         });
     }
