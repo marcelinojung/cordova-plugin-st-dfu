@@ -22,12 +22,14 @@ import com.st.BlueSTSDK.Utils.FwVersion;
 import com.st.BlueSTSDK.gui.fwUpgrade.fwUpgradeConsole.util.FwFileDescriptor;
 
 import android.Manifest;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
@@ -38,15 +40,20 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
+import android.widget.FrameLayout;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -64,16 +71,17 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     private FwUpgradeConsole mFwUpgradeConsole;
 
     private String mCurrentDeviceAddress;
-    private String mBinFilePath = Environment.getExternalStorageDirectory() + "/DFU/BlueMS2_ST.bin";
 
     private Activity mActivity;
     private Context mCordovaContext;
     private CallbackContext mCallbackContext;
 
-    private int mFwFileLength;
+    private long mFwFileLength;
     private int mLatestVersionNumber;
 
-    //    private STDFUView mUpdateView;
+    private STDFUView mUpdateView;
+
+    private String mFilePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/STDFU/BlueMS2_ST.bin";
 
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
@@ -85,12 +93,12 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
         mCordovaContext = cordova.getActivity().getApplicationContext();
 
 //      Create STDFU folder if it doesn't exist
-        File dir = new File(Environment.getExternalStorageDirectory() + "/STDFU");
+        File dir = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/STDFU");
         if (!dir.exists()) {
             dir.mkdirs();
         }
 
-        // TODO: initialize view maybe?
+        mUpdateView = new STDFUView(mActivity);
     }
 
     public boolean execute(String action, JSONArray args, final CallbackContext callbackContext) throws JSONException {
@@ -113,29 +121,39 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     private void checkUpdate(JSONArray message) throws JSONException{
         mCurrentDeviceAddress = message.getString(0);
 
-        try {
-            // Async task to start web socket server
-            DownloadVersionTask dvt = new DownloadVersionTask();
+        cordova.getThreadPool().execute(new Runnable() {
+            public void run() {
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                dvt.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, "");
-            } else {
-                dvt.execute("");
+                try {
+                    // Async task to start web socket server
+                    DownloadVersionTask dvt = new DownloadVersionTask();
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                        dvt.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, "");
+                    } else {
+                        dvt.execute("");
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
             }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+        });
     }
 
     private void initiateUpdate() {
-        DownloadFirmwareTask dft = new DownloadFirmwareTask();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            dft.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, "");
-        } else {
-            dft.execute("");
-        }
+        cordova.getThreadPool().execute(new Runnable() {
+            public void run() {
+                DownloadFirmwareTask dft = new DownloadFirmwareTask();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                    dft.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, "");
+                } else {
+                    dft.execute("");
+                }
+            }
+        });
     }
 
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private BluetoothDevice getBluetoothDeviceWithAddress(String address) {
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) mCordovaContext.getSystemService(Context.BLUETOOTH_SERVICE);
@@ -184,6 +202,7 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
             case Connected:
                 Log.v(TAG, "BlueSTSDKNodeStateConnected");
                 mFwUpgradeConsole = FwUpgradeConsole.getFwUpgradeConsole(mNode);
+                assert mFwUpgradeConsole != null;
                 mFwUpgradeConsole.setLicenseConsoleListener(this);
                 mFwUpgradeConsole.readVersion(FwUpgradeConsole.BOARD_FW);
                 break;
@@ -204,24 +223,52 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     /* FwUpgradeConsole.FwUpgradeCallback */
 
     @Override
-    public void onVersionRead(FwUpgradeConsole fwUpgradeConsole, int i, FwVersion fwVersion) {
-        Log.d(TAG, "onVersionRead");
-        fwUpgradeConsole.loadFw(FwUpgradeConsole.BOARD_FW, new FwFileDescriptor(mCordovaContext.getContentResolver(), Uri.parse(mBinFilePath)));
+    public void onVersionRead(final FwUpgradeConsole fwUpgradeConsole, int i, FwVersion fwVersion) {
+        cordova.getThreadPool().execute(new Runnable() {
+            public void run() {
+                Log.d(TAG, "onVersionRead");
+                FrameLayout parent = (FrameLayout) webView.getView().getParent();
+                mUpdateView.showProgressView(parent);
+
+                File file = new File(mFilePath);
+                mFwFileLength = file.length();
+                fwUpgradeConsole.loadFw(FwUpgradeConsole.BOARD_FW, new FwFileDescriptor(mCordovaContext.getContentResolver(), Uri.fromFile(file)));
+            }
+        });
     }
 
     @Override
     public void onLoadFwComplete(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor) {
-        Log.d(TAG, "onLoadFwComplete");
+        cordova.getThreadPool().execute(new Runnable() {
+            public void run() {
+                Log.d(TAG, "onLoadFwComplete");
+                FrameLayout parent = (FrameLayout)webView.getView().getParent();
+                mUpdateView.removeOverlay(parent);
+            }
+        });
     }
 
     @Override
     public void onLoadFwError(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor, int i) {
         Log.d(TAG, "onLoadFwError");
+
+        PluginResult result = new PluginResult(Status.ERROR, "failure");
+        result.setKeepCallback(true);
+        mCallbackContext.sendPluginResult(result);
+
+        FrameLayout parent = (FrameLayout)webView.getView().getParent();
+        mUpdateView.removeOverlay(parent);
     }
 
     @Override
-    public void onLoadFwProgressUpdate(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor, long l) {
-        Log.d(TAG, "onLoadFwProgressUpdate");
+    public void onLoadFwProgressUpdate(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor, final long l) {
+        cordova.getThreadPool().execute(new Runnable() {
+            public void run() {
+                Log.d(TAG, "onLoadFwProgressUpdate");
+                long percentage = ((mFwFileLength - l) * 100) / mFwFileLength;
+                mUpdateView.updateProgressView((long)percentage);
+            }
+        });
     }
 
 
@@ -241,9 +288,10 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
         protected void onPostExecute(String result) {
             if (result.equals("success")) {
                 BluetoothDevice device = getBluetoothDeviceWithAddress(mCurrentDeviceAddress);
+                assert device != null;
                 int currentVersion = getIntegerFromStringWithRegex(device.getName(), "[0-9][0-9][0-9]");
 
-                if (mLatestVersionNumber >= currentVersion) {
+                if (mLatestVersionNumber > currentVersion) {
                     AlertDialog.Builder builder = new AlertDialog.Builder(mActivity, AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
                     builder.setMessage("New update available. Would you like to update your device?");
                     builder.setCancelable(false);
@@ -252,6 +300,8 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                             "Yes",
                             new DialogInterface.OnClickListener() {
                                 public void onClick(DialogInterface dialog, int id) {
+                                    FrameLayout parent = (FrameLayout)webView.getView().getParent();
+                                    mUpdateView.showOverlay(parent, "Preparing device for update. Please wait. This may take 5 minutes.");
                                     PluginResult result = new PluginResult(PluginResult.Status.OK, "approved");
                                     result.setKeepCallback(true);
                                     mCallbackContext.sendPluginResult(result);
@@ -263,6 +313,9 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                             "No",
                             new DialogInterface.OnClickListener() {
                                 public void onClick(DialogInterface dialog, int id) {
+                                    PluginResult result = new PluginResult(PluginResult.Status.OK, "none");
+                                    result.setKeepCallback(true);
+                                    mCallbackContext.sendPluginResult(result);
                                     dialog.cancel();
                                 }
                             });
@@ -271,6 +324,10 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
 
                     alert.show();
                 }
+            } else {
+                PluginResult pr = new PluginResult(PluginResult.Status.OK, "none");
+                pr.setKeepCallback(true);
+                mCallbackContext.sendPluginResult(pr);
             }
         }
 
@@ -288,7 +345,7 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                     BufferedReader reader = new BufferedReader(new InputStreamReader(is, "iso-8859-1"), 8);
 
                     while ((line = reader.readLine()) != null) {
-                        sb.append(line + "n");
+                        sb.append(line).append("n");
                     }
 
                     is.close();
@@ -337,14 +394,15 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
                     InputStream is = conn.getInputStream();
                     BufferedInputStream bis = new BufferedInputStream(is);
-                    FileOutputStream fos = new FileOutputStream(new File(Environment.getExternalStorageDirectory() + "/DFU/BlueMS2_ST.bin"));
+                    FileOutputStream writer = new FileOutputStream( new File(mFilePath) );
 
-                    int current = 0;
+                    int current;
                     while ((current = bis.read()) != -1) {
-                        fos.write(current);
+                        writer.write( (byte) current);
                     }
 
-                    fos.close();
+                    writer.close();
+                    bis.close();
 
                     return 1;
                 }
@@ -352,7 +410,7 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 e.printStackTrace();
             }
 
-            return -1;
+            return 1;
         }
     }
 }
