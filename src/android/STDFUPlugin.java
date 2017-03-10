@@ -159,10 +159,19 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 (BluetoothManager) mCordovaContext.getSystemService(Context.BLUETOOTH_SERVICE);
         List<BluetoothDevice> devices = bluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
 
-        for (BluetoothDevice device : devices) {
-            if (device.getAddress().equals(address)) {
-                return device;
+        if (devices.size() > 0) {
+            for (BluetoothDevice device : devices) {
+                if (device.getAddress().equals(address)) {
+                    return device;
+                }
             }
+        } else {
+            BluetoothAdapter adapter = bluetoothManager.getAdapter();
+            BluetoothDevice device = adapter.getRemoteDevice(address);
+
+//            if (device != null) {
+                return (device != null) ? device : null;
+//            }
         }
 
         return null;
@@ -292,41 +301,45 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
         protected void onPostExecute(String result) {
             if (result.equals("success")) {
                 BluetoothDevice device = getBluetoothDeviceWithAddress(mCurrentDeviceAddress);
-                assert device != null;
-                int currentVersion = getIntegerFromStringWithRegex(device.getName(), "[0-9][0-9][0-9]");
 
-                if (mLatestVersionNumber > currentVersion) {
-                    AlertDialog.Builder builder = new AlertDialog.Builder(mActivity, AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
-                    builder.setMessage("New update available. Would you like to update your device?");
-                    builder.setCancelable(false);
+                if (device != null) {
+                    int currentVersion = getIntegerFromStringWithRegex(device.getName(), "[0-9][0-9][0-9]");
 
-                    builder.setPositiveButton(
-                            "Yes",
-                            new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int id) {
-                                    FrameLayout parent = (FrameLayout)webView.getView().getParent();
-                                    mUpdateView.showOverlay(parent, "Preparing device for update. Please wait. This may take 5 minutes.");
-                                    PluginResult result = new PluginResult(PluginResult.Status.OK, "approved");
-                                    result.setKeepCallback(true);
-                                    mCallbackContext.sendPluginResult(result);
-                                    dialog.cancel();
-                                }
-                            });
+                    if (mLatestVersionNumber >= currentVersion) {
+                        AlertDialog.Builder builder = new AlertDialog.Builder(mActivity, AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+                        builder.setMessage("New update available. Would you like to update your device?");
+                        builder.setCancelable(false);
 
-                    builder.setNegativeButton(
-                            "No",
-                            new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int id) {
-                                    PluginResult result = new PluginResult(PluginResult.Status.OK, "none");
-                                    result.setKeepCallback(true);
-                                    mCallbackContext.sendPluginResult(result);
-                                    dialog.cancel();
-                                }
-                            });
+                        builder.setPositiveButton(
+                                "Yes",
+                                new DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialog, int id) {
+                                        FrameLayout parent = (FrameLayout) webView.getView().getParent();
+                                        mUpdateView.showOverlay(parent, "Preparing device for update. Please wait. This may take 5 minutes.");
+                                        PluginResult result = new PluginResult(PluginResult.Status.OK, "approved");
+                                        result.setKeepCallback(true);
+                                        mCallbackContext.sendPluginResult(result);
+                                        dialog.cancel();
+                                    }
+                                });
 
-                    AlertDialog alert = builder.create();
+                        builder.setNegativeButton(
+                                "No",
+                                new DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialog, int id) {
+                                        PluginResult result = new PluginResult(PluginResult.Status.OK, "none");
+                                        result.setKeepCallback(true);
+                                        mCallbackContext.sendPluginResult(result);
+                                        dialog.cancel();
+                                    }
+                                });
 
-                    alert.show();
+                        AlertDialog alert = builder.create();
+
+                        alert.show();
+                    }
+                } else {
+
                 }
             } else {
                 PluginResult pr = new PluginResult(PluginResult.Status.OK, "none");
