@@ -258,6 +258,9 @@
     
     result.keepCallback = [NSNumber numberWithInt:1];
     [self.commandDelegate sendPluginResult: result callbackId: mCurrentCallbackId];
+    
+    [mUpdateView removeOverlay];
+    mUpdateView.hidden = YES;
 }
 
 #pragma mark - BlueSTSDKNodeStateDelegate
