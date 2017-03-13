@@ -39,6 +39,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
 import android.util.Log;
 import android.widget.FrameLayout;
 
@@ -82,6 +83,8 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     private STDFUView mUpdateView;
 
     private String mFilePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/STDFU/BlueMS2_ST.bin";
+
+    private Handler mTimeoutHandler = new Handler();
 
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
@@ -235,6 +238,8 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     public void onVersionRead(final FwUpgradeConsole fwUpgradeConsole, int i, FwVersion fwVersion) {
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
+                mTimeoutHandler.removeCallbacks(timeout);
+                
                 Log.d(TAG, "onVersionRead");
                 FrameLayout parent = (FrameLayout) webView.getView().getParent();
                 mUpdateView.showProgressView(parent);
@@ -242,6 +247,8 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 File file = new File(mFilePath);
                 mFwFileLength = file.length();
                 fwUpgradeConsole.loadFw(FwUpgradeConsole.BOARD_FW, new FwFileDescriptor(mCordovaContext.getContentResolver(), Uri.fromFile(file)));
+
+                mTimeoutHandler.postDelayed(timeout, 5000);
             }
         });
     }
@@ -430,4 +437,12 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
             return 1;
         }
     }
+
+    /* Internal Tiemout handler */
+    Runnable timeout = new Runnable() {
+        @Override
+        public void run() {
+            onLoadFwError(null, null, 0);
+        }
+    };
 }

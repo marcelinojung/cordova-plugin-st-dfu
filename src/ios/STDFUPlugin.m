@@ -12,7 +12,6 @@
 
 #import <Cordova/CDVAvailability.h>
 #import <CoreBluetooth/CoreBluetooth.h>
-
 #import <BlueSTDFU/BlueSTSDK.h>
 #import <BlueSTDFU/BlueSTSDKFwUpgradeConsole.h>
 
@@ -61,7 +60,7 @@
                                                        fromString: peripheral.name];
                 
                 NSInteger newVersion = [self downloadVersion];
-                if (version < newVersion) { //TODO: Need to compare with version.
+                if (version <= newVersion) { //TODO: Need to compare with version.
                     dispatch_async(dispatch_get_main_queue(), ^{
                         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"" message:@"New update available. Would you like to update your device?" delegate:self cancelButtonTitle:@"NO" otherButtonTitles:@"YES", nil];
                         alert.delegate = self;
@@ -174,6 +173,10 @@
     return nil;
 }
 
+- (void) updateTimeout {
+    [self fwUpgrade: nil onLoadError:nil error: BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION];
+}
+
 #pragma mark - UIAlertViewDelegate
 
 - (void) alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
@@ -231,9 +234,13 @@
     if (![mUpdateView displayingProgress]) {
         [mUpdateView showProgressView];
     } else {
+        [NSObject cancelPreviousPerformRequestsWithTarget: self selector: @selector(updateTimeout) object: nil];
+        
         float progress = (1.0f - load / (float)mFwFileLength);
         
         [mUpdateView updateProgressView: progress];
+        
+        [self performSelector: @selector(updateTimeout) withObject: nil afterDelay: 5.0f];
     }
 }
 
@@ -305,4 +312,4 @@
 }
 
 @end
- 
+
