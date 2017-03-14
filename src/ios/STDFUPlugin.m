@@ -60,7 +60,7 @@
                                                        fromString: peripheral.name];
                 
                 NSInteger newVersion = [self downloadVersion];
-                if (version <= newVersion) { //TODO: Need to compare with version.
+                if (version < newVersion) { //TODO: Need to compare with version.
                     dispatch_async(dispatch_get_main_queue(), ^{
                         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"" message:@"New update available. Would you like to update your device?" delegate:self cancelButtonTitle:@"NO" otherButtonTitles:@"YES", nil];
                         alert.delegate = self;
