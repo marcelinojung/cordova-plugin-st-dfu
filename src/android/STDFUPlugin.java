@@ -440,9 +440,9 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     
     /* Internal Tiemout handler */
     Runnable timeout = new Runnable() {
-    @Override
-    public void run() {
-    onLoadFwError(null, null, 0);
-}
-};
+        @Override
+        public void run() {
+            onLoadFwError(null, null, 0);
+        }
+    };
 }
