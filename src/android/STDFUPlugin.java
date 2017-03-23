@@ -312,7 +312,7 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 if (device != null) {
                     int currentVersion = getIntegerFromStringWithRegex(device.getName(), "[0-9][0-9][0-9]");
 
-                    if (mLatestVersionNumber >= currentVersion) {
+                    if (mLatestVersionNumber > currentVersion) {
                         AlertDialog.Builder builder = new AlertDialog.Builder(mActivity, AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
                         builder.setMessage("New update available. Would you like to update your device?");
                         builder.setCancelable(false);
