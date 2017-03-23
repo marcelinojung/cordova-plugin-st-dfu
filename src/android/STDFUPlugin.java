@@ -66,49 +66,49 @@ import java.util.regex.Pattern;
 
 public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeStateListener, FwUpgradeConsole.FwUpgradeCallback {
     private static final String TAG = "STDFUPlugin";
-
+    
     private Node mNode;
     private Manager mManager;
     private FwUpgradeConsole mFwUpgradeConsole;
-
+    
     private String mCurrentDeviceAddress;
-
+    
     private Activity mActivity;
     private Context mCordovaContext;
     private CallbackContext mCallbackContext;
-
+    
     private long mFwFileLength;
     private int mLatestVersionNumber;
-
+    
     private STDFUView mUpdateView;
-
+    
     private String mFilePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/STDFU/BlueMS2_ST.bin";
-
+    
     private Handler mTimeoutHandler = new Handler();
-
+    
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
-
+        
         mManager = Manager.getSharedInstance();
         mManager.addListener(this);
-
+        
         mActivity = cordova.getActivity();
         mCordovaContext = cordova.getActivity().getApplicationContext();
-
-//      Create STDFU folder if it doesn't exist
+        
+        //      Create STDFU folder if it doesn't exist
         File dir = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/STDFU");
         if (!dir.exists()) {
             dir.mkdirs();
         }
-
+        
         mUpdateView = new STDFUView(mActivity);
     }
-
+    
     public boolean execute(String action, JSONArray args, final CallbackContext callbackContext) throws JSONException {
         if (mCallbackContext == null) {
             mCallbackContext = callbackContext;
         }
-
+        
         switch (action) {
             case "checkUpdate":
                 checkUpdate(args);
@@ -117,20 +117,20 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 initiateUpdate();
                 break;
         }
-
+        
         return true;
     }
-
+    
     private void checkUpdate(JSONArray message) throws JSONException{
         mCurrentDeviceAddress = message.getString(0);
-
+        
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
-
+                
                 try {
                     // Async task to start web socket server
                     DownloadVersionTask dvt = new DownloadVersionTask();
-
+                    
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                         dvt.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, "");
                     } else {
@@ -142,7 +142,7 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
             }
         });
     }
-
+    
     private void initiateUpdate() {
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
@@ -155,13 +155,13 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
             }
         });
     }
-
+    
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private BluetoothDevice getBluetoothDeviceWithAddress(String address) {
         final BluetoothManager bluetoothManager =
-                (BluetoothManager) mCordovaContext.getSystemService(Context.BLUETOOTH_SERVICE);
+        (BluetoothManager) mCordovaContext.getSystemService(Context.BLUETOOTH_SERVICE);
         List<BluetoothDevice> devices = bluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
-
+        
         if (devices.size() > 0) {
             for (BluetoothDevice device : devices) {
                 if (device.getAddress().equals(address)) {
@@ -171,34 +171,34 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
         } else {
             BluetoothAdapter adapter = bluetoothManager.getAdapter();
             BluetoothDevice device = adapter.getRemoteDevice(address);
-
-//            if (device != null) {
-                return (device != null) ? device : null;
-//            }
+            
+            //            if (device != null) {
+            return (device != null) ? device : null;
+            //            }
         }
-
+        
         return null;
     }
-
+    
     private int getIntegerFromStringWithRegex(String string, String regex) {
         // Create a Pattern object
         Pattern r = Pattern.compile(regex);
-
+        
         // Now create matcher object.
         Matcher m = r.matcher(string);
         if (m.find()) {
             return Integer.parseInt(m.group(0));
         }
-
+        
         return -1;
     }
-
+    
     /* ManagerListener Methods */
-
+    
     public void onDiscoveryChange(Manager m, boolean enabled) {
-
+        
     }
-
+    
     public void onNodeDiscovered(Manager m, Node node) {
         if (node.getTag().equals(mCurrentDeviceAddress)) {
             mNode = node;
@@ -206,9 +206,9 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
             node.connect(mCordovaContext);
         }
     }
-
+    
     /* NodeStateListener Methods */
-
+    
     public void onStateChange(Node node, State newState, State prevState) {
         switch (newState) {
             case Connected:
@@ -231,28 +231,24 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 Log.v(TAG, "State not handled");
         }
     }
-
+    
     /* FwUpgradeConsole.FwUpgradeCallback */
-
+    
     @Override
     public void onVersionRead(final FwUpgradeConsole fwUpgradeConsole, int i, FwVersion fwVersion) {
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
-                mTimeoutHandler.removeCallbacks(timeout);
-                
                 Log.d(TAG, "onVersionRead");
                 FrameLayout parent = (FrameLayout) webView.getView().getParent();
                 mUpdateView.showProgressView(parent);
-
+                
                 File file = new File(mFilePath);
                 mFwFileLength = file.length();
                 fwUpgradeConsole.loadFw(FwUpgradeConsole.BOARD_FW, new FwFileDescriptor(mCordovaContext.getContentResolver(), Uri.fromFile(file)));
-
-                mTimeoutHandler.postDelayed(timeout, 5000);
             }
         });
     }
-
+    
     @Override
     public void onLoadFwComplete(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor) {
         cordova.getThreadPool().execute(new Runnable() {
@@ -260,38 +256,42 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 Log.d(TAG, "onLoadFwComplete");
                 FrameLayout parent = (FrameLayout)webView.getView().getParent();
                 mUpdateView.removeOverlay(parent);
-
+                
                 PluginResult pr = new PluginResult(PluginResult.Status.OK, "updated");
                 pr.setKeepCallback(true);
                 mCallbackContext.sendPluginResult(pr);
             }
         });
     }
-
+    
     @Override
     public void onLoadFwError(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor, int i) {
         Log.d(TAG, "onLoadFwError");
-
-        PluginResult result = new PluginResult(Status.ERROR, "failure");
+        
+        PluginResult result = new PluginResult(Status.ERROR, "failed");
         result.setKeepCallback(true);
         mCallbackContext.sendPluginResult(result);
-
+        
         FrameLayout parent = (FrameLayout)webView.getView().getParent();
         mUpdateView.removeOverlay(parent);
     }
-
+    
     @Override
     public void onLoadFwProgressUpdate(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor, final long l) {
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
+                mTimeoutHandler.removeCallbacks(timeout);
+                
                 Log.d(TAG, "onLoadFwProgressUpdate");
                 long percentage = ((mFwFileLength - l) * 100) / mFwFileLength;
                 mUpdateView.updateProgressView((long)percentage);
+                
+                mTimeoutHandler.postDelayed(timeout, 5000);
             }
         });
     }
-
-
+    
+    
     /* Task to download version */
     private class DownloadVersionTask extends AsyncTask<String, Object, String> {
         @Override
@@ -299,54 +299,54 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
             if (downloadVersion() != -1) {
                 return "success";
             }
-
-
+            
+            
             return "fail";
         }
-
+        
         @Override
         protected void onPostExecute(String result) {
             if (result.equals("success")) {
                 BluetoothDevice device = getBluetoothDeviceWithAddress(mCurrentDeviceAddress);
-
+                
                 if (device != null) {
                     int currentVersion = getIntegerFromStringWithRegex(device.getName(), "[0-9][0-9][0-9]");
-
+                    
                     if (mLatestVersionNumber > currentVersion) {
                         AlertDialog.Builder builder = new AlertDialog.Builder(mActivity, AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
                         builder.setMessage("New update available. Would you like to update your device?");
                         builder.setCancelable(false);
-
+                        
                         builder.setPositiveButton(
-                                "Yes",
-                                new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int id) {
-                                        FrameLayout parent = (FrameLayout) webView.getView().getParent();
-                                        mUpdateView.showOverlay(parent, "Preparing device for update. Please wait. This may take 5 minutes.");
-                                        PluginResult result = new PluginResult(PluginResult.Status.OK, "approved");
-                                        result.setKeepCallback(true);
-                                        mCallbackContext.sendPluginResult(result);
-                                        dialog.cancel();
-                                    }
-                                });
-
+                                                  "Yes",
+                                                  new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                FrameLayout parent = (FrameLayout) webView.getView().getParent();
+                                mUpdateView.showOverlay(parent, "Preparing device for update. Please wait. This may take 5 minutes.");
+                                PluginResult result = new PluginResult(PluginResult.Status.OK, "approved");
+                                result.setKeepCallback(true);
+                                mCallbackContext.sendPluginResult(result);
+                                dialog.cancel();
+                            }
+                        });
+                        
                         builder.setNegativeButton(
-                                "No",
-                                new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int id) {
-                                        PluginResult result = new PluginResult(PluginResult.Status.OK, "none");
-                                        result.setKeepCallback(true);
-                                        mCallbackContext.sendPluginResult(result);
-                                        dialog.cancel();
-                                    }
-                                });
-
+                                                  "No",
+                                                  new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                PluginResult result = new PluginResult(PluginResult.Status.OK, "none");
+                                result.setKeepCallback(true);
+                                mCallbackContext.sendPluginResult(result);
+                                dialog.cancel();
+                            }
+                        });
+                        
                         AlertDialog alert = builder.create();
-
+                        
                         alert.show();
                     }
                 } else {
-
+                    
                 }
             } else {
                 PluginResult pr = new PluginResult(PluginResult.Status.OK, "none");
@@ -354,26 +354,26 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 mCallbackContext.sendPluginResult(pr);
             }
         }
-
+        
         private int downloadVersion() {
             try {
                 URL downloadUrl = new URL("https://s3.amazonaws.com/sttile.blueapp.io/test/version.json");
                 HttpURLConnection conn = (HttpURLConnection) downloadUrl.openConnection();
-
+                
                 if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
                     JSONObject jObj;
                     InputStream is = conn.getInputStream();
-
+                    
                     String line;
                     StringBuilder sb = new StringBuilder();
                     BufferedReader reader = new BufferedReader(new InputStreamReader(is, "iso-8859-1"), 8);
-
+                    
                     while ((line = reader.readLine()) != null) {
                         sb.append(line).append("n");
                     }
-
+                    
                     is.close();
-
+                    
                     jObj = new JSONObject(sb.toString());
                     mLatestVersionNumber = Integer.parseInt(jObj.getString("version"));
                     return mLatestVersionNumber;
@@ -381,11 +381,11 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
             } catch (IOException | JSONException e) {
                 e.printStackTrace();
             }
-
+            
             return -1;
         }
     }
-
+    
     /* Task to download firmware */
     private class DownloadFirmwareTask extends AsyncTask<String, Object, String> {
         @Override
@@ -393,10 +393,10 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
             if (downloadFirmware() != -1) {
                 return "success";
             }
-
+            
             return "fail";
         }
-
+        
         @Override
         protected void onPostExecute(String result) {
             if (result.equals("success")) {
@@ -409,40 +409,40 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 }
             }
         }
-
+        
         private int downloadFirmware() {
             try {
                 URL downloadUrl = new URL("https://s3.amazonaws.com/sttile.blueapp.io/test/BlueMS2_ST.bin");
                 HttpURLConnection conn = (HttpURLConnection) downloadUrl.openConnection();
-
+                
                 if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
                     InputStream is = conn.getInputStream();
                     BufferedInputStream bis = new BufferedInputStream(is);
                     FileOutputStream writer = new FileOutputStream( new File(mFilePath) );
-
+                    
                     int current;
                     while ((current = bis.read()) != -1) {
                         writer.write( (byte) current);
                     }
-
+                    
                     writer.close();
                     bis.close();
-
+                    
                     return 1;
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
+            
             return 1;
         }
     }
-
+    
     /* Internal Tiemout handler */
     Runnable timeout = new Runnable() {
-        @Override
-        public void run() {
-            onLoadFwError(null, null, 0);
-        }
-    };
+    @Override
+    public void run() {
+    onLoadFwError(null, null, 0);
+}
+};
 }
