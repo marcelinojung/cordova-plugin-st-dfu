@@ -82,6 +82,8 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     
     private STDFUView mUpdateView;
     
+    private boolean updating = false;
+    
     private String mFilePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/STDFU/BlueMS2_ST.bin";
     
     private Handler mTimeoutHandler = new Handler();
@@ -223,9 +225,11 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 break;
             case Disconnecting:
                 Log.v(TAG, "BlueSTSDKNodeStateDisconnecting");
+                onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION+2);
                 break;
             case Lost:
                 Log.v(TAG, "BlueSTSDKNodeStateLost");
+                onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION+2);
                 break;
             default:
                 Log.v(TAG, "State not handled");
@@ -254,6 +258,8 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
                 Log.d(TAG, "onLoadFwComplete");
+                updating = false;
+                
                 FrameLayout parent = (FrameLayout)webView.getView().getParent();
                 mUpdateView.removeOverlay(parent);
                 
@@ -268,7 +274,13 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     public void onLoadFwError(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor, int i) {
         Log.d(TAG, "onLoadFwError");
         
-        PluginResult result = new PluginResult(Status.ERROR, "failed");
+        String message = "failed";
+        
+        if (i == BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION + 2) {
+            message = "connection failed";
+        }
+        
+        PluginResult result = new PluginResult(Status.ERROR, message);
         result.setKeepCallback(true);
         mCallbackContext.sendPluginResult(result);
         
@@ -280,6 +292,10 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     public void onLoadFwProgressUpdate(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor, final long l) {
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
+                if (updating == false) {
+                    updating = true;
+                }
+                
                 mTimeoutHandler.removeCallbacks(timeout);
                 
                 Log.d(TAG, "onLoadFwProgressUpdate");
@@ -442,7 +458,7 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     Runnable timeout = new Runnable() {
         @Override
         public void run() {
-            onLoadFwError(null, null, 0);
+            onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION);
         }
     };
 }

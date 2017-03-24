@@ -34,6 +34,7 @@
     NSString *mCurrentCallbackId;
     NSString *mCurrentDeviceUUID;
     NSString *mCurrentDeviceName;
+    BOOL updating = NO;
 }
 
 - (void) pluginInitialize {
@@ -231,6 +232,10 @@
 
 - (void) fwUpgrade:(BlueSTSDKFwUpgradeConsole *)console onLoadProgres:(NSURL *)file loadBytes:(NSUInteger)load {
     NSLog(@"onLoadProgerss");
+    if (updating == NO) {
+        updating == YES;
+    }
+    
     if (![mUpdateView displayingProgress]) {
         [mUpdateView showProgressView];
     } else {
@@ -247,6 +252,8 @@
 -(void) fwUpgrade:(BlueSTSDKFwUpgradeConsole *)console onLoadComplite:(NSURL *)file {
     NSLog(@"onLoadComplite");
     
+    updating = NO;
+    
     [mUpdateView removeOverlay];
     mUpdateView.hidden = YES;
     
@@ -260,8 +267,14 @@
 - (void) fwUpgrade:(BlueSTSDKFwUpgradeConsole *)console onLoadError:(NSURL *)file error:(BlueSTSDKFwUpgradeUploadFwError)error {
     NSLog(@"onLoadError");
     
+    NSString *message = @"failed";
+    
+    if (error == BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION + 2) {
+        message = @"connection failed"
+    }
+    
     CDVPluginResult* result = [CDVPluginResult resultWithStatus: CDVCommandStatus_ERROR
-                                                messageAsString: @"failed"];
+                                                messageAsString: message];
     
     result.keepCallback = [NSNumber numberWithInt:1];
     [self.commandDelegate sendPluginResult: result callbackId: mCurrentCallbackId];
@@ -285,9 +298,13 @@
             break;
         case BlueSTSDKNodeStateDisconnecting:
             NSLog(@"BlueSTSDKNodeStateDisconnecting");
+            if (updating) {
+                [self fwUpgrade: nil onLoadError:nil error: BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION + 2];
+            }
             break;
         case BlueSTSDKNodeStateLost:
             NSLog(@"BlueSTSDKNodeStateLost");
+            [self fwUpgrade: nil onLoadError:nil error: BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION + 2];
             break;
         default:
             NSLog(@"State not handled");
