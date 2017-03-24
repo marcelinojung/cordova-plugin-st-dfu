@@ -182,6 +182,10 @@
 
 - (void) alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if(buttonIndex == YES) {
+        if (updating == NO) {
+            updating == YES;
+        }
+        
         mUpdateView.hidden = NO;
         
         [self.commandDelegate runInBackground:^{
@@ -232,9 +236,6 @@
 
 - (void) fwUpgrade:(BlueSTSDKFwUpgradeConsole *)console onLoadProgres:(NSURL *)file loadBytes:(NSUInteger)load {
     NSLog(@"onLoadProgerss");
-    if (updating == NO) {
-        updating == YES;
-    }
     
     if (![mUpdateView displayingProgress]) {
         [mUpdateView showProgressView];

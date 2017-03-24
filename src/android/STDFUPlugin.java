@@ -292,10 +292,6 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     public void onLoadFwProgressUpdate(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor, final long l) {
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
-                if (updating == false) {
-                    updating = true;
-                }
-                
                 mTimeoutHandler.removeCallbacks(timeout);
                 
                 Log.d(TAG, "onLoadFwProgressUpdate");
@@ -337,6 +333,10 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                                                   "Yes",
                                                   new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int id) {
+                                if (updating == false) {
+                                    updating == true;
+                                }
+                                
                                 FrameLayout parent = (FrameLayout) webView.getView().getParent();
                                 mUpdateView.showOverlay(parent, "Preparing device for update. Please wait. This may take 5 minutes.");
                                 PluginResult result = new PluginResult(PluginResult.Status.OK, "approved");
