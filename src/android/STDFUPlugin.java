@@ -223,19 +223,19 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
             case Unreachable:
                 Log.v(TAG, "BlueSTSDKNodeStateUnreachable");
                 if (updating) {
-                    onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION+2);
+                    onLoadFwError(null, null, 3);
                 }
                 break;
             case Disconnecting:
                 Log.v(TAG, "BlueSTSDKNodeStateDisconnecting");
                 if (updating) {
-                    onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION+2);
+                    onLoadFwError(null, null, 3);
                 }
                 break;
             case Lost:
                 Log.v(TAG, "BlueSTSDKNodeStateLost");
                 if (updating) {
-                    onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION+2);
+                    onLoadFwError(null, null, 3);
                 }
                 break;
             default:
@@ -281,18 +281,16 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     public void onLoadFwError(FwUpgradeConsole fwUpgradeConsole, FwFileDescriptor fwFileDescriptor, int i) {
         Log.d(TAG, "onLoadFwError");
         
-        String message = "failed";
-        
-        if (i == BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION + 2) {
-            message = "connection failed";
-        }
-        
-        PluginResult result = new PluginResult(Status.ERROR, message);
+        PluginResult result = new PluginResult(Status.ERROR, "failed");
         result.setKeepCallback(true);
         mCallbackContext.sendPluginResult(result);
         
         FrameLayout parent = (FrameLayout)webView.getView().getParent();
         mUpdateView.removeOverlay(parent);
+
+        if (mNode.isConnected()) {
+            mNode.disconnect();
+        }
     }
     
     @Override
@@ -340,10 +338,6 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                                                   "Yes",
                                                   new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int id) {
-                                if (updating == false) {
-                                    updating == true;
-                                }
-                                
                                 FrameLayout parent = (FrameLayout) webView.getView().getParent();
                                 mUpdateView.showOverlay(parent, "Preparing device for update. Please wait. This may take 5 minutes.");
                                 PluginResult result = new PluginResult(PluginResult.Status.OK, "approved");
@@ -445,7 +439,7 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                     
                     int current;
                     while ((current = bis.read()) != -1) {
-                        writer.write( (byte) current);
+                        writer.write((byte) current);
                     }
                     
                     writer.close();
@@ -465,7 +459,7 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
     Runnable timeout = new Runnable() {
         @Override
         public void run() {
-            onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION);
+            onLoadFwError(null, null, 1);
         }
     };
 }

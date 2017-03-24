@@ -288,6 +288,10 @@
     
     [mUpdateView removeOverlay];
     mUpdateView.hidden = YES;
+    
+    if ([mNode isConnected]) {
+        [mNode disconnect];
+    }
 }
 
 #pragma mark - BlueSTSDKNodeStateDelegate
