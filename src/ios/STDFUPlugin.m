@@ -34,7 +34,7 @@
     NSString *mCurrentCallbackId;
     NSString *mCurrentDeviceUUID;
     NSString *mCurrentDeviceName;
-    BOOL updating = NO;
+    BOOL updating;
 }
 
 - (void) pluginInitialize {
@@ -43,6 +43,8 @@
     
     mUpdateView = [[STDFUView alloc] init];
     mUpdateView.hidden = YES;
+    
+    updating = NO;
     
     [self.webView addSubview: mUpdateView];
 }
@@ -61,7 +63,11 @@
                                                        fromString: peripheral.name];
                 
                 NSInteger newVersion = [self downloadVersion];
-                if (version < newVersion) { //TODO: Need to compare with version.
+#ifdef DEBUG
+                if (version <= newVersion) {
+#else
+                if (version < newVersion) {
+#endif
                     dispatch_async(dispatch_get_main_queue(), ^{
                         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"" message:@"New update available. Would you like to update your device?" delegate:self cancelButtonTitle:@"NO" otherButtonTitles:@"YES", nil];
                         alert.delegate = self;
@@ -271,7 +277,7 @@
     NSString *message = @"failed";
     
     if (error == BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION + 2) {
-        message = @"connection failed"
+        message = @"connection failed";
     }
     
     CDVPluginResult* result = [CDVPluginResult resultWithStatus: CDVCommandStatus_ERROR
@@ -296,6 +302,9 @@
             break;
         case BlueSTSDKNodeStateUnreachable:
             NSLog(@"BlueSTSDKNodeStateUnreachable");
+            if (updating) {
+                [self fwUpgrade: nil onLoadError:nil error: BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION + 2];
+            }
             break;
         case BlueSTSDKNodeStateDisconnecting:
             NSLog(@"BlueSTSDKNodeStateDisconnecting");
@@ -305,7 +314,9 @@
             break;
         case BlueSTSDKNodeStateLost:
             NSLog(@"BlueSTSDKNodeStateLost");
-            [self fwUpgrade: nil onLoadError:nil error: BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION + 2];
+            if (updating) {
+                [self fwUpgrade: nil onLoadError:nil error: BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION + 2];
+            }
             break;
         default:
             NSLog(@"State not handled");

@@ -222,14 +222,21 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                 break;
             case Unreachable:
                 Log.v(TAG, "BlueSTSDKNodeStateUnreachable");
+                if (updating) {
+                    onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION+2);
+                }
                 break;
             case Disconnecting:
                 Log.v(TAG, "BlueSTSDKNodeStateDisconnecting");
-                onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION+2);
+                if (updating) {
+                    onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION+2);
+                }
                 break;
             case Lost:
                 Log.v(TAG, "BlueSTSDKNodeStateLost");
-                onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION+2);
+                if (updating) {
+                    onLoadFwError(null, null, BLUESTSDK_FWUPGRADE_UPLOAD_ERROR_TRANSMISSION+2);
+                }
                 break;
             default:
                 Log.v(TAG, "State not handled");
