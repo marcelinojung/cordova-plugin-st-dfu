@@ -363,7 +363,9 @@ public class STDFUPlugin extends CordovaPlugin implements ManagerListener, NodeS
                         alert.show();
                     }
                 } else {
-                    
+                    PluginResult pr = new PluginResult(PluginResult.Status.OK, "none");
+                    pr.setKeepCallback(true);
+                    mCallbackContext.sendPluginResult(pr);
                 }
             } else {
                 PluginResult pr = new PluginResult(PluginResult.Status.OK, "none");
